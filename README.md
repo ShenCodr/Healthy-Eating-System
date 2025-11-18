@@ -10,10 +10,7 @@
 - 数据存储于本地 `data.json`，随操作自动读写，便于实验验收演示。
 - 全局 QSS 强调草绿色渐变、圆角卡片与 hover 微交互。
 
-## 运行方式
 
-```powershell
-D:/Py_project/.venv/Scripts/python.exe d:/Py_project/Human-computer/exp2/sts1.py
-```
 
 首次运行后在同目录生成 `data.json`。如遇图形界面未显示，请确认已安装 PyQt5（`pip install PyQt5`）。
+
