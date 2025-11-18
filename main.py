@@ -40,7 +40,7 @@ SIDEBAR_BG = "#FFFFFF"
 ACCENT_DARK = "#2D2D2D"
 ACCENT_HONEY = "#FFD166"
 TEXT_COLOR = "#333333"
-DEFAULT_CREDENTIALS = {"username": "admin", "password": "123456"}
+DEFAULT_CREDENTIALS = {"username": "超大王", "password": "123456", "height": 170, "weight": 65}
 
 
 class DataManager:
@@ -76,13 +76,13 @@ class ConfigManager:
         except json.JSONDecodeError:
             data = {}
         merged = DEFAULT_CREDENTIALS.copy()
-        merged.update({k: v for k, v in data.items() if k in {"username", "password"}})
+        merged.update({k: v for k, v in data.items() if k in {"username", "password", "height", "weight"}})
         return merged
 
     @staticmethod
     def save_credentials(credentials: dict) -> None:
         payload = DEFAULT_CREDENTIALS.copy()
-        payload.update({k: v for k, v in credentials.items() if k in {"username", "password"}})
+        payload.update({k: v for k, v in credentials.items() if k in {"username", "password", "height", "weight"}})
         CONFIG_FILE.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
@@ -183,22 +183,22 @@ class LoginWindow(QDialog):
 
         title = QLabel("HealthMonitor")
         title.setStyleSheet(
-            f"color: {ACCENT_DARK}; font-size: 30px; font-weight: 600;"
+            f"color: {ACCENT_DARK}; font-size: 48px; font-weight: 600;"
         )
         subtitle = QLabel("记录专属于你的清新饮食日记")
-        subtitle.setStyleSheet("color: #6b6f6e; font-size: 16px;")
+        subtitle.setStyleSheet("color: #6b6f6e; font-size: 22px;")
 
         self.username_edit = QLineEdit(self.credentials.get("username", "admin"))
         self.username_edit.setPlaceholderText("请输入用户名")
-        self.username_edit.setMinimumHeight(54)
+        self.username_edit.setMinimumHeight(68)
 
         self.password_edit = QLineEdit()
         self.password_edit.setPlaceholderText("请输入密码")
         self.password_edit.setEchoMode(QLineEdit.Password)
-        self.password_edit.setMinimumHeight(54)
+        self.password_edit.setMinimumHeight(68)
 
         self.login_button = QPushButton("进入健康看板")
-        self.login_button.setMinimumHeight(56)
+        self.login_button.setMinimumHeight(68)
         self.login_button.setCursor(Qt.PointingHandCursor)
         self.login_button.clicked.connect(self.validate_login)
 
@@ -233,14 +233,14 @@ class LoginWindow(QDialog):
                 border: 1px solid #d8d5cf;
                 border-radius: 18px;
                 padding: 12px 16px;
-                font-size: 15px;
+                font-size: 20px;
             }}
             QLineEdit:focus {{ border: 1px solid {ACCENT_HONEY}; }}
             QPushButton {{
                 background-color: {ACCENT_DARK};
                 color: white;
                 border-radius: 20px;
-                font-size: 16px;
+                font-size: 20px;
                 font-weight: 600;
             }}
             QPushButton:hover {{ background-color: #454545; }}
@@ -408,6 +408,8 @@ class MainWindow(QMainWindow):
         self.calorie_delta_label: Optional[QLabel] = None
         self.name_input: Optional[QLineEdit] = None
         self.target_spin: Optional[QSpinBox] = None
+        self.height_spin: Optional[QSpinBox] = None
+        self.weight_spin: Optional[QSpinBox] = None
         self.old_password_input: Optional[QLineEdit] = None
         self.new_password_input: Optional[QLineEdit] = None
         self.confirm_password_input: Optional[QLineEdit] = None
@@ -734,8 +736,22 @@ class MainWindow(QMainWindow):
         self.target_spin.setSingleStep(100)
         self.target_spin.setValue(self.target_calories)
 
+        self.height_spin = QSpinBox()
+        self.height_spin.setRange(100, 250)
+        self.height_spin.setSingleStep(1)
+        self.height_spin.setSuffix(" cm")
+        self.height_spin.setValue(self.credentials.get("height", 170))
+
+        self.weight_spin = QSpinBox()
+        self.weight_spin.setRange(30, 200)
+        self.weight_spin.setSingleStep(1)
+        self.weight_spin.setSuffix(" kg")
+        self.weight_spin.setValue(self.credentials.get("weight", 65))
+
         form_layout.addRow("昵称", self.name_input)
         form_layout.addRow("每日热量目标", self.target_spin)
+        form_layout.addRow("身高", self.height_spin)
+        form_layout.addRow("体重", self.weight_spin)
 
         save_btn = QPushButton("保存设置")
         save_btn.setObjectName("primaryCta")
@@ -1016,6 +1032,22 @@ class MainWindow(QMainWindow):
         cal = latest.get("calories", 0)
         self.tip_label.setText(f"最新记录 · {meal} · {food} · {cal} kcal")
 
+    def update_body_card(self) -> None:
+        if not self.body_label:
+            return
+        height = self.credentials.get("height", 170)
+        weight = self.credentials.get("weight", 65)
+        bmi = weight / ((height / 100) ** 2)
+        if bmi < 18.5:
+            status = "偏瘦"
+        elif bmi < 24:
+            status = "正常"
+        elif bmi < 28:
+            status = "超重"
+        else:
+            status = "肥胖"
+        self.body_label.setText(f"身高 {height}cm · 体重 {weight}kg · BMI {bmi:.1f} · {status}")
+
     def handle_logout(self) -> None:
         dialog = AlertDialog(
             "退出登录",
@@ -1048,6 +1080,11 @@ class MainWindow(QMainWindow):
             self.username = self.name_input.text().strip() or self.username
         if self.target_spin:
             self.target_calories = self.target_spin.value()
+        if self.height_spin:
+            self.credentials["height"] = self.height_spin.value()
+        if self.weight_spin:
+            self.credentials["weight"] = self.weight_spin.value()
+        ConfigManager.save_credentials(self.credentials)
         self._apply_user_preferences()
         AlertDialog("已保存", "设置已更新，继续加油！", self).exec_()
 
@@ -1090,6 +1127,7 @@ class MainWindow(QMainWindow):
         self.update_highlights()
         self.update_preference_summary()
         self.update_body_insight()
+        self.update_body_card()
 
     def apply_style(self) -> None:
         self.setStyleSheet(
@@ -1131,7 +1169,7 @@ class MainWindow(QMainWindow):
                 border-radius: 28px;
             }}
             QLabel#headline {{ color: #ffffff; font-size: 26px; font-weight: 600; }}
-            QLabel#subline {{ color: rgba(255,255,255,0.8); font-size: 15px; }}
+            QLabel#subline {{ color: rgba(255,255,255,0.8); font-size: 18px; }}
             QPushButton#primaryCta {{
                 background-color: {ACCENT_HONEY};
                 color: {ACCENT_DARK};
